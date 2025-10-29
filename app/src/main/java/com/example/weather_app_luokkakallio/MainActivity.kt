@@ -10,18 +10,22 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
+import androidx.compose.ui.modifier.modifierLocalOf
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -37,6 +41,24 @@ import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+
+//Tampere
+const val LONG1 = 23.7871
+const val LAT1 = 61.4991
+//Ivalo
+const val LONG2 = 27.5389
+const val LAT2 = 68.6599
+//Oulu HUOM MUOKATTU JOENSUU
+//const val LONG3 = 25.4682
+//const val LAT3 = 65.0124
+const val LONG3 = 29.7632
+const val LAT3 = 62.6012
+//Ähtäri
+const val LONG4 = 24.0619
+const val LAT4 = 62.554
+//Helsinki
+const val LONG5 = 24.9354
+const val LAT5 = 60.1695
 
 
 class MainActivity : ComponentActivity() {
@@ -55,22 +77,40 @@ fun Navigation() {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
-        startDestination = "default"
+        startDestination = "page1"
     ){
-        composable("default") {
-            DefaultPage(navController)
+        composable("page1") {
+            Page1(navController)
         }
-
         composable("page2") {
             Page2(navController)
         }
+        composable("page3") {
+            Page3(navController)
+        }
+        composable("page4") {
+            Page4(navController)
+        }
+        composable("page5") {
+            Page5(navController)
+        }
+
     }
 }
 
 
 @Composable
-fun DefaultPage(navController: NavHostController){
-    val weatherInfo = Apicall(61.4991, 23.7871)
+fun Page1(navController: NavHostController){
+    val (temperature, rain) = apicall(LAT1, LONG1)
+
+    Column(modifier= Modifier
+        .fillMaxSize()
+        .padding(top=60.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top) {
+        Text("Click default")
+    }
+
 
     Column(modifier = Modifier
     .fillMaxSize()
@@ -78,13 +118,33 @@ fun DefaultPage(navController: NavHostController){
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.Center)
 {
-    Text("Default page")
-    Text(weatherInfo)
+    Text("Tampere")
+    Text("Lämpötila $temperature")
+    Text("Sademäärä $rain")
 
-    Button(onClick = {navController.navigate("page2")})
-    {
-        Text(text="Helsinki")
+    Row(){
+        Button(onClick = {navController.navigate("page1")})
+        {
+            Text(text="Tampere")
+        }
+        Button(onClick = {navController.navigate("page2")})
+        {
+            Text(text="Ivalo")
+        }
+        Button(onClick = {navController.navigate("page3")})
+        {
+            Text(text="Oulu")
+        }
+        Button(onClick = {navController.navigate("page4")})
+        {
+            Text(text="Ähtäri")
+        }
+        Button(onClick = {navController.navigate("page5")})
+        {
+            Text(text="Helsinki")
+        }
     }
+
 
 }
 }
@@ -92,53 +152,235 @@ fun DefaultPage(navController: NavHostController){
 
 @Composable
 fun Page2(navController: NavHostController){
+    val (temperature, rain) = apicall(LAT2, LONG2)
+
+    Column(modifier= Modifier
+        .fillMaxSize()
+        .padding(top=60.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top) {
+        Text("Click default")
+    }
+
+
     Column(modifier = Modifier
         .fillMaxSize()
         .padding(all=16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center)
     {
-        Text(
-            text="Helsinki"
-        )
-        Button(onClick = {navController.navigate("default")})
-        {
-            Text(text="Default")
+        Text("Ivalo")
+        Text("Lämpötila $temperature")
+        Text("Sademäärä $rain")
+
+        Row(){
+            Button(onClick = {navController.navigate("page1")})
+            {
+                Text(text="Tampere")
+            }
+            Button(onClick = {navController.navigate("page2")})
+            {
+                Text(text="Ivalo")
+            }
+            Button(onClick = {navController.navigate("page3")})
+            {
+                Text(text="Oulu")
+            }
+            Button(onClick = {navController.navigate("page4")})
+            {
+                Text(text="Ähtäri")
+            }
+            Button(onClick = {navController.navigate("page5")})
+            {
+                Text(text="Helsinki")
+            }
         }
+
 
     }
 }
 
 @Composable
-fun Apicall(latitude: Double, longitude: Double): String {
-    var text by remember { mutableStateOf("Loading...") }
+fun Page3(navController: NavHostController){
+    val (temperature, rain) = apicall(LAT3, LONG3)
 
-    val url = "https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&hourly=temperature_2m,rain&current=temperature_2m,rain"
-    val client = OkHttpClient()
-    val request = Request.Builder().url(url).build()
+    Column(modifier= Modifier
+        .fillMaxSize()
+        .padding(top=60.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top) {
+        Text("Click default")
+    }
 
-    client.newCall(request).enqueue(object : Callback {
-        override fun onFailure(call: Call, e: IOException) {
-            Log.e("HTTP", "Verkkovirhe: ${e.message}")
-            Handler(Looper.getMainLooper()).post {
-                text = "Verkkovirhe: ${e.message}"
+
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(all=16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center)
+    {
+        Text("Oulu")
+        Text("Lämpötila $temperature")
+        Text("Sademäärä $rain")
+
+        Row(){
+            Button(onClick = {navController.navigate("page1")})
+            {
+                Text(text="Tampere")
+            }
+            Button(onClick = {navController.navigate("page2")})
+            {
+                Text(text="Ivalo")
+            }
+            Button(onClick = {navController.navigate("page3")})
+            {
+                Text(text="Oulu")
+            }
+            Button(onClick = {navController.navigate("page4")})
+            {
+                Text(text="Ähtäri")
+            }
+            Button(onClick = {navController.navigate("page5")})
+            {
+                Text(text="Helsinki")
             }
         }
 
-        override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-            val body = response.body?.string()
-            if (body != null) {
-                val json = JSONObject(body)
-                val current = json.getJSONObject("current")
-                val temperature = current.getDouble("temperature_2m")
-                val rain = current.getDouble("rain")
 
-                Handler(Looper.getMainLooper()).post {
-                    text = "Lämpötila nyt: $temperature °C Vesimäärä: $rain mm"
+    }
+}
+@Composable
+fun Page4(navController: NavHostController){
+    val (temperature, rain) = apicall(LAT4, LONG4)
+
+    Column(modifier= Modifier
+        .fillMaxSize()
+        .padding(top=60.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top) {
+        Text("Click default")
+    }
+
+
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(all=16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center)
+    {
+        Text("Ähtäri")
+        Text("Lämpötila $temperature")
+        Text("Sademäärä $rain")
+
+        Row(){
+            Button(onClick = {navController.navigate("page1")})
+            {
+                Text(text="Tampere")
+            }
+            Button(onClick = {navController.navigate("page2")})
+            {
+                Text(text="Ivalo")
+            }
+            Button(onClick = {navController.navigate("page3")})
+            {
+                Text(text="Oulu")
+            }
+            Button(onClick = {navController.navigate("page4")})
+            {
+                Text(text="Ähtäri")
+            }
+            Button(onClick = {navController.navigate("page5")})
+            {
+                Text(text="Helsinki")
+            }
+        }
+
+
+    }
+}
+@Composable
+fun Page5(navController: NavHostController){
+    val (temperature, rain) = apicall(LAT5, LONG5)
+
+    Column(modifier= Modifier
+        .fillMaxSize()
+        .padding(top=60.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top) {
+        Text("Click default")
+    }
+
+
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(all=16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center)
+    {
+        Text("Helsinki")
+        Text("Lämpötila $temperature")
+        Text("Sademäärä $rain")
+
+        Row(){
+            Button(onClick = {navController.navigate("page1")})
+            {
+                Text(text="Tampere")
+            }
+            Button(onClick = {navController.navigate("page2")})
+            {
+                Text(text="Ivalo")
+            }
+            Button(onClick = {navController.navigate("page3")})
+            {
+                Text(text="Oulu")
+            }
+            Button(onClick = {navController.navigate("page4")})
+            {
+                Text(text="Ähtäri")
+            }
+            Button(onClick = {navController.navigate("page5")})
+            {
+                Text(text="Helsinki")
+            }
+        }
+
+
+    }
+}
+
+@Composable
+fun apicall(latitude: Double, longitude: Double): Pair<Double?, Double?> {
+    var result by remember { mutableStateOf<Pair<Double?, Double?>>(Pair(null, null)) }
+
+    //LAunchedEffect estää jatkuvan apinrasittamisen --> hakee apista vain kun muutos
+    LaunchedEffect(latitude, longitude) {
+        val url =
+            "https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&hourly=temperature_2m,rain&current=temperature_2m,rain"
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("HTTP", "Verkkovirhe: ${e.message}")
+            }
+
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                val body = response.body?.string()
+                if (body != null) {
+                    val json = JSONObject(body)
+                    val current = json.getJSONObject("current")
+                    val temperature = current.getDouble("temperature_2m")
+                    val rain = current.getDouble("rain")
+
+                    Handler(Looper.getMainLooper()).post {
+                        result = Pair(temperature, rain)
+                    }
                 }
             }
-        }
-    })
-    return text
-}
+
+        })
+    }
+        return result
+    }
+
 
