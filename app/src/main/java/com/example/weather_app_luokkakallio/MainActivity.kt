@@ -1,6 +1,7 @@
 package com.example.weather_app_luokkakallio
 
 import android.app.DownloadManager
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,14 +19,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.modifier.modifierLocalOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -41,6 +45,17 @@ import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import androidx.navigation.compose.currentBackStackEntryAsState
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlin.collections.get
+
 
 //Tampere
 const val LONG1 = 23.7871
@@ -60,6 +75,9 @@ const val LAT4 = 62.554
 const val LONG5 = 24.9354
 const val LAT5 = 60.1695
 
+val Context.dataStore by preferencesDataStore(name = "settings")
+val DEFAULT_PAGE = stringPreferencesKey("default_page")
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,40 +93,63 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Navigation() {
     val navController = rememberNavController()
-    NavHost(
-        navController = navController,
-        startDestination = "page1"
-    ){
-        composable("page1") {
-            Page1(navController)
-        }
-        composable("page2") {
-            Page2(navController)
-        }
-        composable("page3") {
-            Page3(navController)
-        }
-        composable("page4") {
-            Page4(navController)
-        }
-        composable("page5") {
-            Page5(navController)
-        }
+    val context = LocalContext.current
 
+    var storedPage by remember { mutableStateOf("Ladataan...") }
+
+
+    LaunchedEffect(Unit) {
+        readDefaultPage(context).collect { value ->
+            storedPage = value
+        }
+    }
+
+    if (storedPage == "Ladataan...") {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Ladataan asetuksia...")
+        }
+    } else {
+        NavHost(
+            navController = navController,
+            startDestination = if (storedPage == "not set") "page1" else storedPage
+        ) {
+            composable("page1") { Page1(navController, storedPage) }
+            composable("page2") { Page2(navController, storedPage) }
+            composable("page3") { Page3(navController, storedPage) }
+            composable("page4") { Page4(navController, storedPage) }
+            composable("page5") { Page5(navController, storedPage) }
+        }
     }
 }
 
 
+
 @Composable
-fun Page1(navController: NavHostController){
+fun Page1(navController: NavHostController, storedPage: String?){
     val (temperature, rain) = apicall(LAT1, LONG1)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Column(modifier= Modifier
         .fillMaxSize()
         .padding(top=60.dp),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Top) {
-        Text("Click default")
+
+        Button(onClick = {
+            scope.launch {
+                storeDefaultPage(context, "page1")
+
+            }
+        })
+        {
+            Text(text = "Aseta oletukseksi, oletus on $storedPage")
+        }
+
     }
 
 
@@ -151,17 +192,28 @@ fun Page1(navController: NavHostController){
 
 
 @Composable
-fun Page2(navController: NavHostController){
+fun Page2(navController: NavHostController, storedPage: String?){
     val (temperature, rain) = apicall(LAT2, LONG2)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Column(modifier= Modifier
         .fillMaxSize()
         .padding(top=60.dp),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Top) {
-        Text("Click default")
-    }
 
+        Button(onClick = {
+            scope.launch {
+                storeDefaultPage(context, "page2")
+
+            }
+        })
+        {
+            Text(text = "Aseta oletukseksi, oletus on $storedPage")
+        }
+
+    }
 
     Column(modifier = Modifier
         .fillMaxSize()
@@ -201,7 +253,7 @@ fun Page2(navController: NavHostController){
 }
 
 @Composable
-fun Page3(navController: NavHostController){
+fun Page3(navController: NavHostController, storedPage: String?){
     val (temperature, rain) = apicall(LAT3, LONG3)
 
     Column(modifier= Modifier
@@ -250,7 +302,7 @@ fun Page3(navController: NavHostController){
     }
 }
 @Composable
-fun Page4(navController: NavHostController){
+fun Page4(navController: NavHostController, storedPage: String?){
     val (temperature, rain) = apicall(LAT4, LONG4)
 
     Column(modifier= Modifier
@@ -299,7 +351,7 @@ fun Page4(navController: NavHostController){
     }
 }
 @Composable
-fun Page5(navController: NavHostController){
+fun Page5(navController: NavHostController, storedPage: String?){
     val (temperature, rain) = apicall(LAT5, LONG5)
 
     Column(modifier= Modifier
@@ -382,5 +434,22 @@ fun apicall(latitude: Double, longitude: Double): Pair<Double?, Double?> {
     }
         return result
     }
+
+suspend fun storeDefaultPage(context: Context, name: String) {
+    context.dataStore.edit { settings ->
+        settings[DEFAULT_PAGE ] = name
+    }
+}
+
+fun readDefaultPage(context: Context): Flow<String>  {
+    return context.dataStore.data
+        .map{settings->
+            settings[DEFAULT_PAGE]?:"not set"
+        }
+}
+
+
+
+
 
 
