@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.modifier.modifierLocalOf
 import androidx.compose.ui.platform.LocalContext
+//import androidx.compose.ui.test.cancel
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -52,10 +53,17 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.navigation.compose.currentBackStackEntryAsState
+import kotlinx.coroutines.Dispatchers
+//import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlin.collections.get
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlin.coroutines.resume
 
 
 //Tampere
@@ -121,11 +129,11 @@ fun Navigation() {
             navController = navController,
             startDestination = if (storedPage == "not set") "page1" else storedPage
         ) {
-            composable("page1") { Page(navController, storedPage, LAT1, LONG1, TOWN1) }
-            composable("page2") { Page(navController, storedPage, LAT2, LONG2, TOWN2) }
-            composable("page3") { Page(navController, storedPage,LAT3, LONG3, TOWN3) }
-            composable("page4") { Page(navController, storedPage, LAT4, LONG4, TOWN4) }
-            composable("page5") { Page(navController, storedPage, LAT5, LONG5, TOWN5) }
+            composable("page1") { Page(navController, storedPage, 1,  LAT1, LONG1, TOWN1) }
+            composable("page2") { Page(navController, storedPage, 2, LAT2, LONG2, TOWN2) }
+            composable("page3") { Page(navController, storedPage, 3,LAT3, LONG3, TOWN3) }
+            composable("page4") { Page(navController, storedPage,  4,LAT4, LONG4, TOWN4) }
+            composable("page5") { Page(navController, storedPage, 5, LAT5, LONG5, TOWN5) }
         }
     }
 }
@@ -133,22 +141,34 @@ fun Navigation() {
 
 
 @Composable
-fun Page(navController: NavHostController, storedPage: String?, lat: Double, long: Double, town: String){
-    val (temperature, rain) = apicall(lat, long)
+fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Double, long: Double, town: String){
+    var temperature by remember { mutableStateOf<Double?>(null) }
+    var rain by remember { mutableStateOf<Double?>(null) }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var newcity by remember { mutableStateOf("") }
+
+    LaunchedEffect(lat, long) {
+        try {
+            val (temp, r) = fetchWeather(lat, long)
+            temperature = temp
+            rain = r
+        } catch (e: Exception) {
+            Log.e("WEATHER_ERROR", "Sään haku epäonnistui: ${e.message}")
+        }
+    }
 
     Column(modifier= Modifier
         .fillMaxSize()
-        .padding(top=60.dp),
+        .padding(top = 60.dp),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Top) {
 
 
-
         Button(onClick = {
             scope.launch {
-                storeDefaultPage(context, "page1")
+                storeDefaultPage(context, "page$id")
 
             }
         })
@@ -160,8 +180,8 @@ fun Page(navController: NavHostController, storedPage: String?, lat: Double, lon
 
 
     Column(modifier = Modifier
-    .fillMaxSize()
-    .padding(all=16.dp),
+        .fillMaxSize()
+        .padding(all = 16.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.Center)
 {
@@ -197,40 +217,41 @@ fun Page(navController: NavHostController, storedPage: String?, lat: Double, lon
 }
 
 
-@Composable
-fun apicall(latitude: Double, longitude: Double): Pair<Double?, Double?> {
-    var result by remember { mutableStateOf<Pair<Double?, Double?>>(Pair(null, null)) }
-
-    //LAunchedEffect estää jatkuvan apinrasittamisen --> hakee apista vain kun muutos
-    LaunchedEffect(latitude, longitude) {
-        val url =
-            "https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&hourly=temperature_2m,rain&current=temperature_2m,rain"
+@OptIn(ExperimentalCoroutinesApi::class)
+suspend fun fetchWeather(latitude: Double, longitude: Double): Pair<Double, Double> = withContext(Dispatchers.IO) {
+    suspendCancellableCoroutine { continuation ->
+        val url = "https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&hourly=temperature_2m,rain&current=temperature_2m,rain"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
+        val call = client.newCall(request)
 
-        client.newCall(request).enqueue(object : Callback {
+        call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("HTTP", "Verkkovirhe: ${e.message}")
+                if (continuation.isActive) continuation.resumeWithException(e)
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                 val body = response.body?.string()
-                if (body != null) {
-                    val json = JSONObject(body)
-                    val current = json.getJSONObject("current")
-                    val temperature = current.getDouble("temperature_2m")
-                    val rain = current.getDouble("rain")
-
-                    Handler(Looper.getMainLooper()).post {
-                        result = Pair(temperature, rain)
+                if (body != null && response.isSuccessful) {
+                    try {
+                        val json = JSONObject(body)
+                        val current = json.getJSONObject("current")
+                        val temperature = current.getDouble("temperature_2m")
+                        val rain = current.getDouble("rain")
+                        continuation.resume(Pair(temperature, rain))
+                    } catch (e: Exception) {
+                        continuation.resumeWithException(e)
                     }
+                } else {
+                    continuation.resumeWithException(IOException("Virheellinen vastaus palvelimelta"))
                 }
             }
-
         })
+        continuation.invokeOnCancellation {
+            call.cancel()
+        }
     }
-        return result
-    }
+}
 
 suspend fun storeDefaultPage(context: Context, name: String) {
     context.dataStore.edit { settings ->
