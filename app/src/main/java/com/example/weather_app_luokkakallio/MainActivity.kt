@@ -129,11 +129,11 @@ fun Navigation() {
             navController = navController,
             startDestination = if (storedPage == "not set") "page1" else storedPage
         ) {
-            composable("page1") { Page(navController, storedPage, 1,  LAT1, LONG1, TOWN1) }
-            composable("page2") { Page(navController, storedPage, 2, LAT2, LONG2, TOWN2) }
-            composable("page3") { Page(navController, storedPage, 3,LAT3, LONG3, TOWN3) }
-            composable("page4") { Page(navController, storedPage,  4,LAT4, LONG4, TOWN4) }
-            composable("page5") { Page(navController, storedPage, 5, LAT5, LONG5, TOWN5) }
+            composable("page1") { Page(navController, storedPage, 1,  LAT1, LONG1, "Tampere") }
+            composable("page2") { Page(navController, storedPage, 2, LAT2, LONG2, "Ivalo") }
+            composable("page3") { Page(navController, storedPage, 3,LAT3, LONG3, "Joensuu") }
+            composable("page4") { Page(navController, storedPage,  4,LAT4, LONG4, "Ähätri") }
+            composable("page5") { Page(navController, storedPage, 5, LAT5, LONG5, "helsinki") }
         }
     }
 }
@@ -144,10 +144,12 @@ fun Navigation() {
 fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Double, long: Double, town: String){
     var temperature by remember { mutableStateOf<Double?>(null) }
     var rain by remember { mutableStateOf<Double?>(null) }
+    var city by remember {mutableStateOf(town)}
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var newcity by remember { mutableStateOf("") }
+
+
 
     LaunchedEffect(lat, long) {
         try {
@@ -164,6 +166,55 @@ fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Do
         .padding(top = 60.dp),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Top) {
+
+        var newCity by remember { mutableStateOf("") }
+        var newLat by remember { mutableStateOf("") }
+        var newLong by remember { mutableStateOf("") }
+
+
+        Text("Hae kaupunkia \uD83D\uDD0E")
+        TextField(
+            value = newCity,
+            onValueChange={newCity = it},
+            label = {
+                Text(text = " Syötä kapungin nimi")
+            }
+
+        )
+
+        TextField(
+            value = newLat,
+            onValueChange={newLat= it},
+            label = {
+                Text(text = " Syötä latitude")
+            }
+
+        )
+
+        TextField(
+            value = newLong,
+            onValueChange={newLong = it},
+            label = {
+                Text(text = " Syötä longitude")
+            }
+
+        )
+
+        Button(onClick = {
+            var newLatDouble = newLat.toDouble()
+            var newLongDouble = newLong.toDouble()
+            if (newCity.isNotEmpty() && newLat.isNotEmpty() && newLong.isNotEmpty()) {
+                scope.launch {
+                    val (temp, r) = fetchWeather(newLatDouble, newLongDouble)
+                    temperature = temp
+                    rain = r
+                    city = newCity
+                }
+            }
+        })
+        {
+            Text(text = "Hae")
+        }
 
 
         Button(onClick = {
@@ -185,31 +236,16 @@ fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Do
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.Center)
 {
-    Text(town)
+    Text(city)
     Text("Lämpötila $temperature")
     Text("Sademäärä $rain")
 
     Row(){
-        Button(onClick = {navController.navigate("page1")})
-        {
-            Text(text="Tampere")
-        }
-        Button(onClick = {navController.navigate("page2")})
-        {
-            Text(text="Ivalo")
-        }
-        Button(onClick = {navController.navigate("page3")})
-        {
-            Text(text="Joensuu")
-        }
-        Button(onClick = {navController.navigate("page4")})
-        {
-            Text(text="Ähtäri")
-        }
-        Button(onClick = {navController.navigate("page5")})
-        {
-            Text(text="Helsinki")
-        }
+        Button(onClick = {navController.navigate("page1")}) { Text(text="Tampere") }
+        Button(onClick = {navController.navigate("page2")}) { Text(text="Ivalo") }
+        Button(onClick = {navController.navigate("page3")}) { Text(text="Joensuu") }
+        Button(onClick = {navController.navigate("page4")}) { Text(text="Ähtäri") }
+        Button(onClick = {navController.navigate("page5")}) { Text(text="Helsinki") }
     }
 
 
