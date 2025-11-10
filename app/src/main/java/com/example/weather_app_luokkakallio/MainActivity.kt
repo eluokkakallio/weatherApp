@@ -1,7 +1,10 @@
 package com.example.weather_app_luokkakallio
 
+import android.R.id.bold
 import android.app.DownloadManager
 import android.content.Context
+import android.graphics.LightingColorFilter
+import android.graphics.fonts.FontStyle
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,12 +12,15 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -28,12 +34,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.modifier.modifierLocalOf
 import androidx.compose.ui.platform.LocalContext
 //import androidx.compose.ui.test.cancel
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -64,6 +72,8 @@ import kotlin.collections.get
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlin.coroutines.resume
+
+
 
 
 //Tampere
@@ -132,7 +142,7 @@ fun Navigation() {
             composable("page1") { Page(navController, storedPage, 1,  LAT1, LONG1, "Tampere") }
             composable("page2") { Page(navController, storedPage, 2, LAT2, LONG2, "Ivalo") }
             composable("page3") { Page(navController, storedPage, 3,LAT3, LONG3, "Joensuu") }
-            composable("page4") { Page(navController, storedPage,  4,LAT4, LONG4, "Ähätri") }
+            composable("page4") { Page(navController, storedPage,  4,LAT4, LONG4, "Ähtäri") }
             composable("page5") { Page(navController, storedPage, 5, LAT5, LONG5, "helsinki") }
         }
     }
@@ -141,10 +151,10 @@ fun Navigation() {
 
 
 @Composable
-fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Double, long: Double, town: String){
+fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Double, long: Double, town: String) {
     var temperature by remember { mutableStateOf<Double?>(null) }
     var rain by remember { mutableStateOf<Double?>(null) }
-    var city by remember {mutableStateOf(town)}
+    var city by remember { mutableStateOf(town) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -161,97 +171,121 @@ fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Do
         }
     }
 
-    Column(modifier= Modifier
-        .fillMaxSize()
-        .padding(top = 60.dp),
-        horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.Top) {
+    Column(
+        modifier = Modifier
+            .padding(all=20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+
+
+    ) {
 
         var newCity by remember { mutableStateOf("") }
         var newLat by remember { mutableStateOf("") }
         var newLong by remember { mutableStateOf("") }
 
 
-        Text("Hae kaupunkia \uD83D\uDD0E")
-        TextField(
-            value = newCity,
-            onValueChange={newCity = it},
-            label = {
-                Text(text = " Syötä kapungin nimi")
-            }
 
-        )
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 70.dp, bottom= 30.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally,
 
-        TextField(
-            value = newLat,
-            onValueChange={newLat= it},
-            label = {
-                Text(text = " Syötä latitude")
-            }
+        ){
 
-        )
+            Text(city, fontSize = 40.sp)
+            Text("$temperature °C",modifier = Modifier .padding(top=30.dp, bottom=10.dp), fontSize = 70.sp)
+            Text("Sademäärä $rain mm", fontSize = 20.sp)
 
-        TextField(
-            value = newLong,
-            onValueChange={newLong = it},
-            label = {
-                Text(text = " Syötä longitude")
-            }
-
-        )
-
-        Button(onClick = {
-            var newLatDouble = newLat.toDouble()
-            var newLongDouble = newLong.toDouble()
-            if (newCity.isNotEmpty() && newLat.isNotEmpty() && newLong.isNotEmpty()) {
+            Button(onClick = {
                 scope.launch {
-                    val (temp, r) = fetchWeather(newLatDouble, newLongDouble)
-                    temperature = temp
-                    rain = r
-                    city = newCity
+                    storeDefaultPage(context, "page$id")
+
                 }
+            })
+            {
+                Text(text = "Aseta oletuskaupungiksi")
             }
-        })
-        {
-            Text(text = "Hae")
         }
 
 
-        Button(onClick = {
-            scope.launch {
-                storeDefaultPage(context, "page$id")
+        ButtonRow(navController = navController)
 
+        Card(modifier = Modifier .padding(top = 70.dp)) {
+
+            Text("Hae kaupunkia \uD83D\uDD0E", modifier = Modifier .padding(all=16.dp) )
+            TextField(
+                value = newCity,
+                onValueChange = { newCity = it },
+                label = {
+                    Text(text = " Syötä kapungin nimi")
+                }
+
+            )
+
+            TextField(
+                value = newLat,
+                onValueChange = { newLat = it },
+                label = {
+                    Text(text = " Syötä latitude")
+                }
+
+            )
+
+            TextField(
+                value = newLong,
+                onValueChange = { newLong = it },
+                label = {
+                    Text(text = " Syötä longitude")
+                }
+
+            )
+
+            Button(onClick = {
+                var newLatDouble = newLat.toDouble()
+                var newLongDouble = newLong.toDouble()
+                if (newCity.isNotEmpty() && newLat.isNotEmpty() && newLong.isNotEmpty()) {
+                    scope.launch {
+                        val (temp, r) = fetchWeather(newLatDouble, newLongDouble)
+                        temperature = temp
+                        rain = r
+                        city = newCity
+                    }
+                }
+            })
+            {
+                Text(text = "Hae")
             }
-        })
-        {
-            Text(text = "Aseta oletukseksi, oletus on $storedPage")
         }
 
     }
+}
 
 
+
+@Composable
+fun ButtonRow(navController: NavHostController) {
     Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(all = 16.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.Center)
-{
-    Text(city)
-    Text("Lämpötila $temperature")
-    Text("Sademäärä $rain")
+        .fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ){
+        Row {
+            Button(modifier = Modifier .padding(all=5.dp),
+                onClick = { navController.navigate("page1") }) { Text(text = "Tampere") }
+            Button(modifier = Modifier .padding(all=5.dp),
+                onClick = { navController.navigate("page2") }) { Text(text = "Ivalo") }
+            Button(modifier = Modifier .padding(all=5.dp),
+                onClick = { navController.navigate("page3") }) { Text(text = "Joensuu") }
+        }
+        Row {
+            Button(modifier = Modifier .padding(all=5.dp),
+                onClick = { navController.navigate("page4") }) { Text(text = "Ähtäri") }
+            Button(modifier = Modifier .padding(all=5.dp),
+                onClick = { navController.navigate("page5") }) { Text(text = "Helsinki") }
+        }
 
-    Row(){
-        Button(onClick = {navController.navigate("page1")}) { Text(text="Tampere") }
-        Button(onClick = {navController.navigate("page2")}) { Text(text="Ivalo") }
-        Button(onClick = {navController.navigate("page3")}) { Text(text="Joensuu") }
-        Button(onClick = {navController.navigate("page4")}) { Text(text="Ähtäri") }
-        Button(onClick = {navController.navigate("page5")}) { Text(text="Helsinki") }
     }
-
-
 }
-}
-
 
 @OptIn(ExperimentalCoroutinesApi::class)
 suspend fun fetchWeather(latitude: Double, longitude: Double): Pair<Double, Double> = withContext(Dispatchers.IO) {
