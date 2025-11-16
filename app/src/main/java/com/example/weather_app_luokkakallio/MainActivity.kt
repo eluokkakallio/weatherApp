@@ -1,18 +1,11 @@
 package com.example.weather_app_luokkakallio
 
-import android.R.id.bold
-import android.app.DownloadManager
 import android.content.Context
-import android.graphics.LightingColorFilter
-import android.graphics.fonts.FontStyle
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,12 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,12 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
-import androidx.compose.ui.modifier.modifierLocalOf
 import androidx.compose.ui.platform.LocalContext
-//import androidx.compose.ui.test.cancel
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -51,29 +37,20 @@ import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.Response
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.Dispatchers
-//import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlin.collections.get
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlin.coroutines.resume
-
-
 
 
 //Tampere
@@ -112,6 +89,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 @Composable
 fun Navigation() {
     val navController = rememberNavController()
@@ -159,8 +137,7 @@ fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Do
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-
-
+    //Säätietojen haku
     LaunchedEffect(lat, long) {
         try {
             val (temp, r) = fetchWeather(lat, long)
@@ -168,6 +145,7 @@ fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Do
             rain = r
         } catch (e: Exception) {
             Log.e("WEATHER_ERROR", "Sään haku epäonnistui: ${e.message}")
+
         }
     }
 
@@ -175,93 +153,121 @@ fun Page(navController: NavHostController, storedPage: String?, id: Int, lat: Do
         modifier = Modifier
             .padding(all=20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-
-
     ) {
-
         var newCity by remember { mutableStateOf("") }
         var newLat by remember { mutableStateOf("") }
         var newLong by remember { mutableStateOf("") }
 
-
-
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 70.dp, bottom= 30.dp),
+        //Yläosa koostuu säätiedoista ja oletussivunappulasta
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 70.dp, bottom = 30.dp),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally,
 
-        ){
-
+            ){
+            //Säätietojen näyttö
             Text(city, fontSize = 40.sp)
-            Text("$temperature °C",modifier = Modifier .padding(top=30.dp, bottom=10.dp), fontSize = 70.sp)
-            Text("Sademäärä $rain mm", fontSize = 20.sp)
+            if (temperature != null && rain != null) {
+                Text("$temperature °C", modifier = Modifier.padding(top = 30.dp, bottom = 10.dp), fontSize = 70.sp)
+                Text("Sademäärä $rain mm", fontSize = 20.sp)
+            } else {
+                Text("Ladataan...", modifier = Modifier.padding(top = 30.dp, bottom = 10.dp), fontSize = 50.sp)
+            }
 
+            //Oletussivun asetus
             Button(onClick = {
                 scope.launch {
                     storeDefaultPage(context, "page$id")
-
                 }
             })
-            {
-                Text(text = "Aseta oletuskaupungiksi")
-            }
+            { Text(text = "Aseta oletuskaupungiksi") }
         }
 
-
         ButtonRow(navController = navController)
+        var errorText by remember { mutableStateOf("") }
 
-        Card(modifier = Modifier .padding(top = 70.dp)) {
+        //Uuden kaupungin tietojen haku ja sivun päivitys
+        SearchCard(
+            onSearch = { searchCity, searchLat, searchLong ->
+                // Tämä koodi suoritetaan, kun SearchCard ilmoittaa onnistuneesta hausta.
+                errorText = ""
+                scope.launch {
+                    try {
+                        val (temp, r) = fetchWeather(searchLat, searchLong)
+                        temperature = temp
+                        rain = r
+                        city = searchCity
+                    } catch (e: Exception) {
+                        errorText = "Säätietojen haku epäonnistui. Tarkista koordinaatit."
+                        Log.e("FETCH_ERROR", "Haku epäonnistui", e)
+                    }
+                }
+            },
+            onSearchError = { errorMessage ->
+                errorText = errorMessage
+            }
+        )
+        Text(
+            text = errorText,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+    }
+}
 
-            Text("Hae kaupunkia \uD83D\uDD0E", modifier = Modifier .padding(all=16.dp) )
+@Composable
+fun SearchCard(
+    onSearch: (city: String, lat: Double, long: Double) -> Unit,
+    onSearchError: (errorMessage: String) -> Unit
+) {
+    var newCity by remember { mutableStateOf("") }
+    var newLat by remember { mutableStateOf("") }
+    var newLong by remember { mutableStateOf("") }
+
+    Card(modifier = Modifier.padding(top = 70.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            Text("Hae kaupunkia \uD83D\uDD0E", modifier = Modifier.padding(bottom = 8.dp, start = 8.dp))
             TextField(
                 value = newCity,
                 onValueChange = { newCity = it },
-                label = {
-                    Text(text = " Syötä kapungin nimi")
-                }
-
+                label = { Text(text = "Syötä kaupungin nimi") }
             )
-
             TextField(
                 value = newLat,
                 onValueChange = { newLat = it },
-                label = {
-                    Text(text = " Syötä latitude")
-                }
-
+                label = { Text(text = "Syötä latitude") }
             )
-
             TextField(
                 value = newLong,
                 onValueChange = { newLong = it },
-                label = {
-                    Text(text = " Syötä longitude")
-                }
-
+                label = { Text(text = "Syötä longitude") }
             )
 
-            Button(onClick = {
-                var newLatDouble = newLat.toDouble()
-                var newLongDouble = newLong.toDouble()
-                if (newCity.isNotEmpty() && newLat.isNotEmpty() && newLong.isNotEmpty()) {
-                    scope.launch {
-                        val (temp, r) = fetchWeather(newLatDouble, newLongDouble)
-                        temperature = temp
-                        rain = r
-                        city = newCity
+            Button(
+                modifier = Modifier.padding(top = 8.dp),
+                onClick = {
+                    val newLatDouble = newLat.toDoubleOrNull()
+                    val newLongDouble = newLong.toDoubleOrNull()
+
+                    // Tarkistetaana että tarvittavat syötteet
+                    if (newCity.isNotEmpty() && newLatDouble != null && newLongDouble != null) {
+                        onSearch(newCity, newLatDouble, newLongDouble)
+
+                        newCity = ""
+                        newLat = ""
+                        newLong = ""
+                    } else {
+                        onSearchError("Tarkista syötteet. Kaupungin nimi ei voi olla tyhjä, ja koordinaattien on oltava numeroita.")
                     }
-                }
-            })
+                })
             {
                 Text(text = "Hae")
             }
         }
-
     }
 }
-
-
 
 @Composable
 fun ButtonRow(navController: NavHostController) {
@@ -283,11 +289,10 @@ fun ButtonRow(navController: NavHostController) {
             Button(modifier = Modifier .padding(all=5.dp),
                 onClick = { navController.navigate("page5") }) { Text(text = "Helsinki") }
         }
-
     }
 }
 
-@OptIn(ExperimentalCoroutinesApi::class)
+
 suspend fun fetchWeather(latitude: Double, longitude: Double): Pair<Double, Double> = withContext(Dispatchers.IO) {
     suspendCancellableCoroutine { continuation ->
         val url = "https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&hourly=temperature_2m,rain&current=temperature_2m,rain"
@@ -335,9 +340,3 @@ fun readDefaultPage(context: Context): Flow<String>  {
             settings[DEFAULT_PAGE]?:"not set"
         }
 }
-
-
-
-
-
-
